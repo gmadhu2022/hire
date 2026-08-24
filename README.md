@@ -1,5 +1,10 @@
 # Hire — Advanced Job Searching Platform
 
+> **Never commit secrets.** API keys, database passwords and SMTP credentials go in
+> `backend/.env` (git-ignored). Tracked files keep empty defaults only. Run
+> `python check_secrets.py` before pushing. If GitHub has already blocked a push,
+> see [FIX_BLOCKED_PUSH.md](FIX_BLOCKED_PUSH.md).
+
 A full-stack job platform with four roles — **Job Seeker, Enterprise (Recruiter), Institute, Admin** —
 built on **Plan B**: React + Tailwind web frontend, FastAPI (Python) backend, Supabase/Postgres database.
 
@@ -69,7 +74,24 @@ identifiers (bundlers treat unknown names as globals), so a missing import passe
 then blanks the page at runtime with `X is not defined`. `npm run verify` runs an ESLint
 `no-undef` pass first, then the build, which catches exactly that.
 
-### Demo logins (from `seed.py`)
+### Locked out? Reset a password
+
+Passwords are bcrypt-hashed and **cannot be decoded** — that's the protection. Set a new one instead:
+
+```bash
+cd backend
+python reset_password.py --list                          # see every account
+python reset_password.py admin@hire.com                  # generate a new password
+python reset_password.py admin@hire.com --password Abc123 # set a specific one
+python reset_password.py admin@hire.com --link           # print a reset link instead
+```
+
+**Why "forgot password" seems broken:** with `EMAIL_ENABLED=False` (the default) no email is
+sent — the reset link prints in the **backend terminal** instead, in a banner marked
+`PASSWORD RESET LINK`. Scroll your uvicorn window. To get real emails, configure SMTP
+(see the email section) or just use `reset_password.py`.
+
+## Demo logins (from `seed.py`)
 
 | Role       | Email           | Password |
 |------------|-----------------|----------|
@@ -82,6 +104,12 @@ the generated passwords appear in the results table **and** print to the backend
 (console email mode). Log in as one to see the resume/template/application flows.
 
 ---
+
+## Deploying
+
+Free deployment on Render (API + static frontend, Supabase for the database):
+**[DEPLOY_RENDER.md](DEPLOY_RENDER.md)**. The repo includes a `render.yaml` blueprint, so
+Render can create both services in one step.
 
 ## Database
 
@@ -111,114 +139,34 @@ DATABASE_URL=postgresql+psycopg2://postgres:YOUR-PASSWORD@db.YOUR-REF.supabase.c
 Get the string from **Supabase dashboard → Project Settings → Database → Connection string (URI)**.
 Tables are created automatically on startup. For real schema management later, add Alembic migrations.
 
-## Turn on real email (Gmail) — important
+## Email setup — one command
 
-Gmail will **not** accept your normal password over SMTP. You must use an **App Password**:
-
-1. Turn on **2-Step Verification** for the Google account.
-2. Go to https://myaccount.google.com/apppasswords and create an app password for **Mail**
-   (it's a 16-character code like `abcd efgh ijkl mnop` — remove the spaces).
-3. In `backend/.env` set:
-   ```
-   EMAIL_ENABLED=True
-   SMTP_HOST=smtp.gmail.com
-   SMTP_PORT=587
-   SMTP_USER=youraddress@gmail.com
-   SMTP_PASSWORD=abcdefghijklmnop     # the app password, no spaces
-   EMAIL_FROM=youraddress@gmail.com   # must match SMTP_USER for Gmail
-   ```
-4. Restart the backend.
-
-**Test it without hunting through logs:** log in as admin and open **Reports → Email diagnostics**,
-enter your address and click *Send test*. It shows the exact error if auth fails (that panel calls
-`POST /api/health/email-test`). Until `EMAIL_ENABLED=True`, every email prints to the backend
-console so you can still develop the credential flows.
-
-Common causes of "no email": `EMAIL_ENABLED` left as `False`, using the Google account password
-instead of an App Password, or 2-Step Verification not enabled (App Passwords require it).
-
-## v2 features
-
-**Notifications & job alerts** — an in-app bell (live-polled) fires on four events: a recruiter
-views/downloads your profile, an application status changes, a new message arrives, and a newly
-posted job matches your skills. Job alerts also send an email. See `app/notify_service.py`.
-
-**Job recommendations with match scoring** — every active job is scored 0–100 against the seeker's
-skills (70%), location (15%) and education (15%), with the matching skills listed. Powers both the
-"Recommended" page and the "Top matches" panel on the dashboard.
-
-**Saved jobs** — bookmark from search or recommendations; one endpoint toggles save/unsave.
-
-**Role dashboards with charts** — job seekers get an applications-by-status bar chart, a profile
-completeness donut with a list of what's missing, and top matches. Recruiters get a hiring-pipeline
-chart plus jobs/applications/resumes-viewed counters. Charts are plain SVG/CSS — no chart library.
-
-**Image uploads** — profile photos and company/institute logos (PNG/JPG/WEBP, max 2 MB). Files are
-stored under `backend/uploads` and served at `/uploads/...`. To move to Supabase Storage, replace
-`_store()` in `app/routers/uploads.py` — nothing else depends on where the bytes live.
-
-**Forgot / reset password** — self-service flow with a single-use, 1-hour token emailed to the user.
-The endpoint returns the same response whether or not the email exists, so it can't be used to
-enumerate accounts.
-
-**Manage jobs** — recruiters can close/reopen postings and view the applicant list per job.
-
-## AI features (Groq)
-
-Turn on in `backend/.env`:
-
-```
-AI_ENABLED=True
-GROQ_API_KEY=gsk_your_key_here          # free key: https://console.groq.com/keys
-GROQ_MODEL=openai/gpt-oss-20b           # must be a model YOUR key supports — see below
+```bash
+cd backend
+python setup_email.py          # interactive: pick a provider, it tests and saves
+python setup_email.py --test   # test what's already configured
+python setup_email.py --show   # show settings + warn about duplicate keys
 ```
 
-Restart the backend.
+The wizard **tests the connection before saving**, so it never writes settings that don't
+work, and it removes duplicate keys from `.env` (a repeated key silently overrides the
+earlier one — a common cause of "my settings are being ignored").
 
-### Picking a valid model
+**Free options that send from your own address, no domain needed:**
 
-**Groq retires model IDs over time**, so a name that worked last month can start returning
-"model not found". Never trust a hardcoded name — read the list from your own key:
+| Provider | Free tier | Notes |
+|---|---|---|
+| **Brevo** | 300/day forever | Recommended. Verify your Gmail as sender, done in 5 min. |
+| Mailjet | 6,000/month | Same idea, slightly lower daily cap. |
+| Gmail | ~500/day | Requires 2-Step Verification + App Password. Not suited to bulk. |
+| Zoho Mail | free tier | Good if you later add your own domain. |
 
-- **In the app:** log in as admin → **Reports → AI model check** → *Check my models*. It shows
-  whether your configured model is valid and lists every model your key can use, with copy buttons.
-- **From the API:** `GET /api/ai/models`
-- **From a terminal:**
-  ```bash
-  curl -H "Authorization: Bearer $GROQ_API_KEY" https://api.groq.com/openai/v1/models
-  ```
+**Gmail note:** App Passwords only appear after 2-Step Verification is fully enabled. If the
+App Passwords page says "not available for your account", 2SV isn't on. Google allows no way
+around this — which is why Brevo (sending *from* your Gmail address) is the easier free path.
 
-Paste a valid ID into `GROQ_MODEL` and restart. If a model disappears later, the error message
-names the problem and points you at this check rather than failing silently. AI buttons appear automatically once `/api/ai/status` reports enabled —
-**with AI off the whole app still works**, the buttons simply don't render.
-
-**For job seekers**
-- *Write with AI* — drafts a career objective from your own details, with improvement tips.
-- *Suggest with AI* (skills) — proposes skills based on your education and current skills.
-- *Import from existing resume* — paste your old resume; AI fills every field for review.
-- *Why this fits* — per job: strengths, gaps, and an application tip, alongside the match score.
-- *Interview prep* — six likely questions with answer hints, plus questions to ask them.
-- *Smart search* — type "fresher mechanical jobs in Hyderabad with CAD" and it becomes filters.
-
-**For recruiters and institutes**
-- *Draft with AI* — turns a job title plus a few fields into a full posting (description,
-  requirements, responsibilities, skills), which you edit before posting.
-- *Brief* — an AI screening summary of any candidate: strengths, gaps, screening questions.
-
-**Safety and cost notes.** Prompts instruct the model never to invent qualifications the user
-didn't provide, and the recruiter-facing prompts forbid speculation about protected attributes.
-Every AI call is user-initiated (no background calls), so cost scales with clicks, not traffic.
-All AI output is presented as a *suggestion* the user must accept — nothing is saved automatically.
-
-If a call fails you get a specific message (bad key, unknown model, rate limit, network) rather
-than a silent failure. Model names change; if you see "model not found", update `GROQ_MODEL`.
-
-## Premium UI
-
-Login pages use a split layout with an animated aurora brand panel, role selector cards,
-floating-label inputs, and per-role copy. Forms across the app use searchable comboboxes
-(type to filter, free text allowed, optional AI suggestions) and tag inputs for multi-value
-fields like skills and languages. Motion respects `prefers-reduced-motion`.
+With email off, everything still works: messages print to the backend terminal, and the
+password-reset link appears there in a marked banner.
 
 ## Chat & safety
 

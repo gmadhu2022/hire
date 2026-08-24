@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import { DashboardLayout, StatusBadge, useToast } from "../../components/ui";
 import Chat from "../../components/Chat";
-import BannerStrip from "../../components/BannerStrip";
+import BannerSlot from "../../components/BannerSlot";
 import { SectorGrid, useTaxonomy } from "../../components/SectorPicker";
 import ImageUpload from "../../components/ImageUpload";
 import ResumeView from "./ResumeView";
@@ -29,8 +29,9 @@ const MENU = [
 export default function JobSeeker() {
   return (
     <DashboardLayout title="Job Seeker" menu={MENU}>
-      {/* visible on every job-seeker page (item 4) */}
-      <BannerStrip audience="jobseekers" />
+      {/* One sponsored slot per page, chosen by route so no two pages repeat
+          the same advertiser. Sits in the content flow — never overlays anything. */}
+      <BannerSlot audience="jobseekers" />
       <Routes>
         <Route index element={<Overview />} />
         <Route path="profile" element={<MyProfile />} />

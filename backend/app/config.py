@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # --- AI (Groq) ---
     # Get a free key at https://console.groq.com/keys
     AI_ENABLED: bool = True
-    GROQ_API_KEY: str = "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"
+    GROQ_API_KEY: str = ""
     # Model IDs change over time. Check what YOUR key supports:
     #   GET /api/ai/models   (or console.groq.com/docs/models)
     GROQ_MODEL: str = "openai/gpt-oss-20b"
@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     # --- App ---
     APP_NAME: str = "Hire"
     FRONTEND_URL: str = "http://localhost:5173"
+    # The institute all voluntary self-registrations are attached to (per user story).
+    DEFAULT_INSTITUTE_NAME: str = "Coco Soft Institute"
+
+    @property
+    def cors_list(self) -> list[str]:
+        origins = {self.FRONTEND_URL, "http://localhost:5173", "http://localhost:3000"}
+        origins.update(o.strip().rstrip("/") for o in self.CORS_ORIGINS.split(",") if o.strip())
+        return sorted(o for o in origins if o)
     # The institute all voluntary self-registrations are attached to (per user story).
     DEFAULT_INSTITUTE_NAME: str = "Coco Soft Institute"
 

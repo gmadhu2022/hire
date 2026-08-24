@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { DashboardLayout, useToast } from "../../components/ui";
-import { IconChart, IconBuilding, IconBriefcase, IconUser } from "../../components/icons";
+import { IconChart, IconBuilding, IconBriefcase, IconUser, IconSparkle } from "../../components/icons";
+import BannerAnalytics from "../../components/BannerAnalytics";
 
 const MENU = [
   { to: "/admin", label: "Reports", icon: IconChart },
   { to: "/admin/institutes", label: "Institutes", icon: IconBuilding },
   { to: "/admin/enterprises", label: "Enterprises", icon: IconBriefcase },
   { to: "/admin/jobseekers", label: "Job seekers", icon: IconUser },
+  { to: "/admin/banners", label: "Banner analytics", icon: IconSparkle },
 ];
 
 export default function Admin() {
@@ -19,6 +21,11 @@ export default function Admin() {
         <Route path="institutes" element={<Institutes />} />
         <Route path="enterprises" element={<Enterprises />} />
         <Route path="jobseekers" element={<JobSeekers />} />
+        <Route path="banners" element={
+          <BannerAnalytics endpoint="/api/admin/banners/analytics"
+                           title="Platform banner analytics"
+                           subtitle="Every advertiser's performance across the platform." />
+        } />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </DashboardLayout>

@@ -10,7 +10,9 @@ import {
 } from "../../components/icons";
 import { BarChart, MatchBar } from "../../components/charts";
 import ImageUpload from "../../components/ImageUpload";
-import { SectorGrid, RolePicker, useTaxonomy } from "../../components/SectorPicker";
+import BannerSlot from "../../components/BannerSlot";
+import BannerAnalytics from "../../components/BannerAnalytics";
+import { SectorList, RolePicker, useTaxonomy } from "../../components/SectorPicker";
 import { AIButton, AIResult, AIList, useAI, useAICall } from "../../components/AIPanel";
 import { Combobox, TagInput } from "../../components/fields";
 import { CATEGORIES, CITIES, EXPERIENCE, SALARY, SKILLS } from "../../lib/options";
@@ -66,6 +68,8 @@ function Overview() {
         <Stat label="Applications" value={d.applications} />
         <Stat label="Resumes viewed" value={d.resumes_viewed} tone="green" />
       </div>
+      <BannerSlot audience="recruiters" compact />
+
       <div className="card">
         <h3 className="mb-4 font-bold text-slate-800">Hiring pipeline</h3>
         <BarChart data={statusData} height={180} />
@@ -159,7 +163,7 @@ function Profile() {
   useEffect(() => { api.get("/api/enterprise/profile").then(setP).catch(() => {}); }, []);
   if (!p) return <Loading />;
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-4xl">
       <h2 className="mb-5 text-xl font-bold text-navy">{p.name}</h2>
       <div className="card mb-5">
         <h3 className="mb-3 font-semibold text-slate-700">Company logo</h3>
@@ -386,7 +390,7 @@ function PostJob() {
     } catch (err) { toast(err.message, "error"); }
   };
   return (
-    <div className="max-w-2xl">
+    <div className="w-full">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-navy">Post a job</h2>
         {aiOn && (
@@ -418,108 +422,134 @@ function PostJob() {
         </div>
       )}
 
-      {/* sector picker — covers every kind of work (item 3) */}
-      <div className="card mb-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 className="font-semibold text-slate-700">What kind of work is this?</h3>
-            <p className="text-xs text-slate-400">
-              {tax ? `${tax.sectors.length} sectors · ${tax.role_count}+ roles — from daily wage to postgraduate` : "Loading sectors…"}
-            </p>
-          </div>
-          {form.sector && (
-            <button className="btn-ghost btn-sm" onClick={() => setForm({ ...form, sector: null })}>Clear</button>
-          )}
-        </div>
-        <SectorGrid sectors={tax?.sectors || []} value={form.sector} onChange={(v) => {
-          const sec = tax?.sectors.find((x) => x.key === v);
-          setForm({ ...form, sector: v,
-            education_level: sec?.education || form.education_level,
-            wage_basis: sec?.wage_basis || form.wage_basis });
-        }} />
-        {form.sector && (
-          <div className="mt-4">
-            <label className="label">Pick the role</label>
-            <RolePicker sectors={tax?.sectors || []} sector={form.sector} value={form.title}
-                        onChange={(r) => { setForm({ ...form, title: r }); if (aiOn) autoConfigure(r); }} />
-          </div>
-        )}
-      </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        {/* ---------------- MAIN: the actual job posting form ---------------- */}
+        <div className="order-2 lg:order-1">
+          <div className="card grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+            <div className="sm:col-span-2 2xl:col-span-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="label !mb-0">Job title <span className="text-red-400">*</span></label>
+                {aiOn && form.title && (
+                  <button className="btn-ghost btn-sm !text-navy" onClick={() => autoConfigure(form.title)} disabled={aiBusy}>
+                    <IconSparkle size={13} /> {aiBusy ? "Configuring…" : "Auto-configure"}
+                  </button>
+                )}
+              </div>
+              <input className="input mt-1.5" value={form.title || ""} onChange={set("title")}
+                     placeholder="e.g. Electrician, Cook, Staff Nurse, Software Engineer" />
+              {form.sector && tax && (
+                <p className="mt-1.5 text-xs text-slate-400">
+                  Sector: <b className="text-navy">{tax.sectors.find((x) => x.key === form.sector)?.name}</b>
+                  {" · "}
+                  <button className="underline hover:text-navy" onClick={() => setForm({ ...form, sector: null })}>change</button>
+                </p>
+              )}
+            </div>
 
-      <div className="card grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <div className="flex items-center justify-between">
-            <label className="label">Job title *</label>
-            {aiOn && form.title && (
-              <button className="btn-ghost btn-sm !text-navy" onClick={() => autoConfigure(form.title)} disabled={aiBusy}>
-                <IconSparkle size={13} /> {aiBusy ? "Configuring…" : "Auto-configure for this role"}
+            <div><label className="label">Job code</label>
+              <input className="input" value={form.job_code || ""} onChange={set("job_code")} placeholder="e.g. ELEC/001" /></div>
+            <Combobox label="Location" value={form.location} options={CITIES} onChange={setV("location")} />
+            <Combobox label="Category" value={form.category} options={CATEGORIES} onChange={setV("category")} aiField="job category" />
+            <div><label className="label">No. of positions</label>
+              <input className="input" value={form.no_of_positions || ""} onChange={set("no_of_positions")} /></div>
+
+            <Combobox label="Job type" value={form.job_type} options={(tax?.job_types || []).map((t) => t.label)} onChange={setV("job_type")} />
+            <Combobox label="Education required" value={form.education_level}
+                      options={(tax?.education_levels || []).map((t) => t.label)} onChange={setV("education_level")} />
+            <Combobox label="Experience" value={form.experience} options={EXPERIENCE} onChange={setV("experience")} />
+            <Combobox label="Wage basis" value={form.wage_basis} options={(tax?.wage_basis || []).map((t) => t.label)} onChange={setV("wage_basis")} />
+            <div><label className="label">Pay from</label>
+              <input className="input" value={form.wage_min || ""} onChange={set("wage_min")} placeholder="700" /></div>
+            <div><label className="label">Pay to</label>
+              <input className="input" value={form.wage_max || ""} onChange={set("wage_max")} placeholder="1000" /></div>
+            <div><label className="label">Shift</label>
+              <input className="input" value={form.shift || ""} onChange={set("shift")} placeholder="Day / Night / Rotational" /></div>
+
+            <div className="sm:col-span-2 2xl:col-span-3">
+              <TagInput label="Key skills" values={form.key_skills || []} options={SKILLS} onChange={setV("key_skills")} />
+            </div>
+
+            <div className="flex flex-wrap gap-4 sm:col-span-2 2xl:col-span-3">
+              {[["is_urgent", "Urgent hiring"], ["accommodation", "Accommodation provided"], ["food_provided", "Food provided"]].map(([k, l]) => (
+                <label key={k} className="flex items-center gap-2 text-sm text-slate-600">
+                  <input type="checkbox" checked={!!form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.checked })} /> {l}
+                </label>
+              ))}
+            </div>
+
+            {aiDraft && (
+              <div className="sm:col-span-2 2xl:col-span-3">
+                <AIResult title="AI draft" onClose={() => setAiDraft(null)}>
+                  <p className="whitespace-pre-line leading-relaxed">{aiDraft.description}</p>
+                  <AIList label="Responsibilities" items={aiDraft.responsibilities} />
+                  {aiDraft.key_skills?.length > 0 && (
+                    <p className="mt-2 text-[13px]"><b>Skills:</b> {aiDraft.key_skills.join(", ")}</p>
+                  )}
+                  <button className="btn-green btn-sm mt-3" onClick={applyDraft}>Use this draft</button>
+                </AIResult>
+              </div>
+            )}
+
+            <div className="sm:col-span-2 2xl:col-span-3"><label className="label">Education requirement</label>
+              <input className="input" value={form.requirement_education || ""} onChange={set("requirement_education")} /></div>
+            <div className="sm:col-span-2 2xl:col-span-3"><label className="label">Technical requirement</label>
+              <input className="input" value={form.requirement_technical || ""} onChange={set("requirement_technical")} /></div>
+            <div className="sm:col-span-2 2xl:col-span-3"><label className="label">Job description</label>
+              <textarea className="input" rows={6} value={form.description || ""} onChange={set("description")} /></div>
+
+            <div><label className="label">Recruiter name</label>
+              <input className="input" value={form.recruiter_name || ""} onChange={set("recruiter_name")} /></div>
+            <div><label className="label">Recruiter phone</label>
+              <input className="input" value={form.recruiter_phone || ""} onChange={set("recruiter_phone")} /></div>
+            <div className="sm:col-span-2 2xl:col-span-3"><label className="label">Recruiter email</label>
+              <input className="input" value={form.recruiter_email || ""} onChange={set("recruiter_email")} /></div>
+
+            <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-2 2xl:col-span-3">
+              <input type="checkbox" checked={form.contact_visible}
+                     onChange={(e) => setForm({ ...form, contact_visible: e.target.checked })} />
+              Show recruiter contact details to job seekers
+            </label>
+
+            <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4 sm:col-span-2 2xl:col-span-3">
+              <button className="btn flex-1 !py-3" onClick={submit}>Post this job</button>
+              <button className="btn-outline" onClick={() => { setForm({ contact_visible: true, key_skills: [] }); toast("Form cleared."); }}>
+                Clear
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ---------------- RIGHT RAIL: pick sector & role ---------------- */}
+        <aside className="order-1 lg:order-2">
+          <div className="space-y-4 lg:sticky lg:top-20">
+            <div className="card !p-4">
+              <h3 className="text-[13.5px] font-bold text-slate-800">What kind of work is this?</h3>
+              <p className="mt-0.5 text-[11.5px] leading-snug text-slate-400">
+                {tax ? `${tax.sectors.length} sectors · ${tax.role_count}+ roles — daily wage to postgraduate`
+                     : "Loading sectors…"}
+              </p>
+              <div className="mt-3">
+                <SectorList sectors={tax?.sectors || []} value={form.sector} onChange={(v) => {
+                  const sec = tax?.sectors.find((x) => x.key === v);
+                  setForm({ ...form, sector: v,
+                    education_level: sec?.education || form.education_level,
+                    wage_basis: sec?.wage_basis || form.wage_basis });
+                }} />
+              </div>
+            </div>
+
+            {form.sector && (
+              <div className="card !p-4">
+                <h3 className="mb-2 text-[13.5px] font-bold text-slate-800">Pick the role</h3>
+                <RolePicker sectors={tax?.sectors || []} sector={form.sector} value={form.title}
+                            onChange={(r) => { setForm({ ...form, title: r }); if (aiOn) autoConfigure(r); }} />
+                <p className="mt-2 text-[11px] text-slate-400">
+                  Choosing a role fills the title and configures pay and education for you.
+                </p>
+              </div>
             )}
           </div>
-          <input className="input" value={form.title || ""} onChange={set("title")}
-                 placeholder="e.g. Electrician, Cook, Software Engineer, Farm Labour" />
-        </div>
-
-        <Combobox label="Job type" value={form.job_type} options={(tax?.job_types || []).map((t) => t.label)}
-                  onChange={setV("job_type")} />
-        <Combobox label="Education required" value={form.education_level}
-                  options={(tax?.education_levels || []).map((t) => t.label)} onChange={setV("education_level")} />
-        <Combobox label="Wage basis" value={form.wage_basis} options={(tax?.wage_basis || []).map((t) => t.label)}
-                  onChange={setV("wage_basis")} />
-        <div><label className="label">Shift</label>
-          <input className="input" value={form.shift || ""} onChange={set("shift")} placeholder="Day / Night / Rotational" /></div>
-        <div><label className="label">Pay from</label>
-          <input className="input" value={form.wage_min || ""} onChange={set("wage_min")} placeholder="e.g. 700" /></div>
-        <div><label className="label">Pay to</label>
-          <input className="input" value={form.wage_max || ""} onChange={set("wage_max")} placeholder="e.g. 1000" /></div>
-
-        <div className="flex flex-wrap gap-4 sm:col-span-2">
-          {[["is_urgent", "Urgent hiring"], ["accommodation", "Accommodation provided"], ["food_provided", "Food provided"]].map(([k, l]) => (
-            <label key={k} className="flex items-center gap-2 text-sm text-slate-600">
-              <input type="checkbox" checked={!!form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.checked })} /> {l}
-            </label>
-          ))}
-        </div>
-        <div><label className="label">Job code</label><input className="input" value={form.job_code || ""} onChange={set("job_code")} /></div>
-        <Combobox label="Location" value={form.location} options={CITIES} onChange={setV("location")} />
-        <Combobox label="Category" value={form.category} options={CATEGORIES} onChange={setV("category")} aiField="job category" />
-        <div><label className="label">No. of positions</label><input className="input" value={form.no_of_positions || ""} onChange={set("no_of_positions")} /></div>
-        <Combobox label="Experience" value={form.experience} options={EXPERIENCE} onChange={setV("experience")} />
-        <Combobox label="Salary" value={form.salary} options={SALARY} onChange={setV("salary")} />
-        <div className="sm:col-span-2">
-          <TagInput label="Key skills" values={form.key_skills || []} options={SKILLS} onChange={setV("key_skills")} />
-        </div>
-
-        {aiDraft && (
-          <div className="sm:col-span-2">
-            <AIResult title="AI draft" onClose={() => setAiDraft(null)}>
-              <p className="whitespace-pre-line leading-relaxed">{aiDraft.description}</p>
-              <AIList label="Responsibilities" items={aiDraft.responsibilities} />
-              {aiDraft.key_skills?.length > 0 && (
-                <p className="mt-2 text-[13px]"><b>Skills:</b> {aiDraft.key_skills.join(", ")}</p>
-              )}
-              <button className="btn-green btn-sm mt-3" onClick={applyDraft}>Use this draft</button>
-            </AIResult>
-          </div>
-        )}
-
-        <div className="sm:col-span-2"><label className="label">Education requirement</label>
-          <input className="input" value={form.requirement_education || ""} onChange={set("requirement_education")} /></div>
-        <div className="sm:col-span-2"><label className="label">Technical requirement</label>
-          <input className="input" value={form.requirement_technical || ""} onChange={set("requirement_technical")} /></div>
-        <div className="sm:col-span-2"><label className="label">Description</label>
-          <textarea className="input" rows={5} value={form.description || ""} onChange={set("description")} /></div>
-
-        <div><label className="label">Recruiter name</label><input className="input" value={form.recruiter_name || ""} onChange={set("recruiter_name")} /></div>
-        <div><label className="label">Recruiter phone</label><input className="input" value={form.recruiter_phone || ""} onChange={set("recruiter_phone")} /></div>
-        <div className="sm:col-span-2"><label className="label">Recruiter email</label>
-          <input className="input" value={form.recruiter_email || ""} onChange={set("recruiter_email")} /></div>
-
-        <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-2">
-          <input type="checkbox" checked={form.contact_visible} onChange={(e) => setForm({ ...form, contact_visible: e.target.checked })} />
-          Show recruiter contact details to job seekers
-        </label>
-        <div className="sm:col-span-2"><button className="btn" onClick={submit}>Post job</button></div>
+        </aside>
       </div>
     </div>
   );
@@ -650,6 +680,7 @@ function PostBanner() {
   const [mine, setMine] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [copy, setCopy] = useState(null);
+  const [view, setView] = useState("create");
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   const load = () => api.get("/api/enterprise/banners").then(setMine).catch(() => {});
@@ -701,11 +732,35 @@ function PostBanner() {
 
   const THEME_SWATCH = { navy: "bg-navy", green: "bg-brandgreen-600", slate: "bg-slate-800", cobalt: "bg-blue-800" };
 
+  if (view === "performance") {
+    return (
+      <div className="max-w-6xl">
+        <div className="mb-4 flex gap-1.5 rounded-xl bg-slate-100 p-1.5">
+          {[["create", "Create banner"], ["performance", "Performance"]].map(([k, l]) => (
+            <button key={k} onClick={() => setView(k)}
+              className={`flex-1 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all ${
+                view === k ? "bg-white text-navy shadow-sm" : "text-slate-500 hover:text-navy"}`}>{l}</button>
+          ))}
+        </div>
+        <BannerAnalytics endpoint="/api/enterprise/banners/analytics"
+                         title="Your banner performance"
+                         subtitle="Views and clicks for the banners you've published." />
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
+      <div className="mb-4 flex gap-1.5 rounded-xl bg-slate-100 p-1.5">
+        {[["create", "Create banner"], ["performance", "Performance"]].map(([k, l]) => (
+          <button key={k} onClick={() => setView(k)}
+            className={`flex-1 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all ${
+              view === k ? "bg-white text-navy shadow-sm" : "text-slate-500 hover:text-navy"}`}>{l}</button>
+        ))}
+      </div>
       <h2 className="mb-1 text-xl font-bold text-navy">Promotional banners</h2>
       <p className="mb-5 text-sm text-slate-500">
-        Banners targeted at job seekers appear at the top of <b>every job-seeker page</b>.
+        One banner shows per page, chosen so different pages feature different advertisers.
       </p>
 
       {/* ---- media picker ---- */}
@@ -753,9 +808,9 @@ function PostBanner() {
           )}
         </div>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2"><label className="label">Banner title</label>
+          <div className="sm:col-span-2 2xl:col-span-3"><label className="label">Banner title</label>
             <input className="input" value={form.title || ""} onChange={set("title")} placeholder="e.g. Walk-in drive this Sunday" /></div>
-          <div className="sm:col-span-2"><label className="label">Message</label>
+          <div className="sm:col-span-2 2xl:col-span-3"><label className="label">Message</label>
             <textarea className="input" rows={2} value={form.text_content || ""} onChange={set("text_content")} /></div>
           <div><label className="label">Button label</label>
             <input className="input" value={form.cta_label || ""} onChange={set("cta_label")} placeholder="View jobs" /></div>

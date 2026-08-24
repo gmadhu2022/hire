@@ -260,6 +260,37 @@ class Block(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class BannerSlot(Base):
+    """Registry of page slots.
+
+    Each distinct page gets a stable, sequential index the first time it asks for
+    a banner. Sequential indexes let us round-robin banners across pages, which
+    guarantees neighbouring pages show *different* advertisers — a hash alone
+    collides and repeats.
+    """
+    __tablename__ = "banner_slots"
+
+    id = Column(Integer, primary_key=True)
+    slot = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BannerEvent(Base):
+    """Daily impression/click totals per banner, used for trend charts.
+
+    Aggregated per day rather than one row per event, so the table stays small
+    even at high traffic.
+    """
+    __tablename__ = "banner_events"
+
+    id = Column(Integer, primary_key=True)
+    banner_id = Column(Integer, ForeignKey("banners.id"), nullable=False, index=True)
+    day = Column(String, nullable=False, index=True)      # YYYY-MM-DD
+    slot = Column(String)                                  # which page it was shown on
+    impressions = Column(Integer, default=0)
+    clicks = Column(Integer, default=0)
+
+
 class Notification(Base):
     """In-app notification. kind: application | view | message | job | system"""
     __tablename__ = "notifications"

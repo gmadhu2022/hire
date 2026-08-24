@@ -95,7 +95,7 @@ export function DashboardLayout({ title, menu, children }) {
             </button>
           </div>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6"><div className="mx-auto w-full max-w-[1600px]">{children}</div></main>
       </div>
     </div>
   );

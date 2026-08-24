@@ -6,6 +6,7 @@ from .. import models, schemas
 from ..database import get_db
 from ..auth import require_role, get_current_user
 from ..notify_service import notify, notify_job_alert, match_score
+from .. import banner_service
 from ..notifications import notify, notify_matching_seekers
 
 router = APIRouter(prefix="/api/enterprise", tags=["enterprise"],
@@ -376,3 +377,11 @@ def banner_status(banner_id: int, body: dict, current: models.User = Depends(get
     b.status = status
     db.commit()
     return {"message": f"Banner {'resumed' if status == 'active' else 'paused'}."}
+
+
+@router.get("/banners/analytics")
+def banner_analytics(days: int = 14, current: models.User = Depends(get_current_user),
+                     db: Session = Depends(get_db)):
+    """Impressions, clicks, CTR and a daily trend for this recruiter's banners."""
+    rows = db.query(models.Banner).filter_by(posted_by_user_id=current.id).all()
+    return banner_service.analytics(db, rows, days=days)

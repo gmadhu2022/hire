@@ -35,7 +35,7 @@ function Profile() {
   useEffect(() => { api.get("/api/institute/profile").then(setP).catch(() => {}); }, []);
   if (!p) return <p>Loading…</p>;
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-4xl">
       <h2 className="mb-5 text-xl font-bold text-navy">{p.name}</h2>
       <div className="card mb-5">
         <h3 className="mb-3 font-semibold text-slate-700">Institute logo</h3>
@@ -91,7 +91,7 @@ function DataUpload() {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <h1 className="mb-2 text-xl font-semibold">Data upload</h1>
       <p className="mb-4 text-sm text-gray-600">
         Upload an Excel of one or many students. A resume is auto-created from the available
@@ -207,7 +207,7 @@ function PostJob() {
   };
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-4xl">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-navy">Post a job</h2>
         {aiOn && (

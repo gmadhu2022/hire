@@ -7,6 +7,7 @@ from ..auth import hash_password, generate_password
 from ..email_utils import send_credentials_email
 from ..config import settings
 from ..job_taxonomy import taxonomy_payload
+from .. import banner_service
 
 router = APIRouter(prefix="/api/public", tags=["public"])
 
@@ -62,43 +63,25 @@ def taxonomy():
 
 
 @router.get("/banners")
-def active_banners(audience: str = "jobseekers", db: Session = Depends(get_db)):
-    """Active banners for an audience, highest priority first.
+def active_banners(audience: str = "jobseekers", slot: str = "default",
+                   db: Session = Depends(get_db)):
+    """Return exactly ONE banner for this page slot.
 
-    Powers the global banner strip shown on every job-seeker page (item 4).
-    Respects start/end dates when set.
+    Different slots get different banners while the pool allows, so a user never
+    sees the same ad twice as they move around the app.
     """
-    from datetime import date
-    today = date.today().isoformat()
-    rows = (db.query(models.Banner)
-            .filter(models.Banner.status == "active",
-                    models.Banner.audience.in_([audience, "all"]))
-            .order_by(models.Banner.priority.desc(), models.Banner.created_at.desc())
-            .limit(10).all())
-    out = []
-    for b in rows:
-        if b.start_date and str(b.start_date) > today:
-            continue
-        if b.end_date and str(b.end_date) < today:
-            continue
-        b.impressions = (b.impressions or 0) + 1
-        out.append({
-            "id": b.id, "title": b.title, "company_name": b.company_name,
-            "text_content": b.text_content, "media_type": b.media_type,
-            "media_url": b.media_url or b.image_url, "poster_url": b.poster_url,
-            "cta_label": b.cta_label, "cta_link": b.cta_link, "theme": b.theme,
-            "autoplay": b.autoplay, "muted": b.muted, "logo_url": b.logo_url,
-        })
-    db.commit()
-    return out
+    b = banner_service.pick_for_slot(db, audience, slot)
+    if not b:
+        return {"banner": None}
+    banner_service.record(db, b, slot, "impression")
+    return {"banner": banner_service.serialise(b), "slot": slot}
 
 
 @router.post("/banners/{banner_id}/click")
-def banner_click(banner_id: int, db: Session = Depends(get_db)):
+def banner_click(banner_id: int, slot: str = "default", db: Session = Depends(get_db)):
     b = db.query(models.Banner).get(banner_id)
     if b:
-        b.clicks = (b.clicks or 0) + 1
-        db.commit()
+        banner_service.record(db, b, slot, "click")
     return {"ok": True}
 
 

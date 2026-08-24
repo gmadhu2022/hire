@@ -97,6 +97,16 @@ def forgot_password(body: dict, db: Session = Depends(get_db)):
     db.commit()
 
     link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+
+    if not settings.EMAIL_ENABLED:
+        # No SMTP configured, so no email will arrive — surface the link loudly
+        # in the server console instead of letting it look like nothing happened.
+        print("\n" + "!" * 74)
+        print("  PASSWORD RESET LINK  (email is OFF — set EMAIL_ENABLED=True to send it)")
+        print("!" * 74)
+        print(f"  For : {email}")
+        print(f"  Open: {link}")
+        print("!" * 74 + "\n", flush=True)
     try:
         send_email(
             email, f"Reset your {settings.APP_NAME} password",
@@ -150,6 +160,16 @@ def forgot_password(body: dict, db: Session = Depends(get_db)):
     db.commit()
 
     link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+
+    if not settings.EMAIL_ENABLED:
+        # No SMTP configured, so no email will arrive — surface the link loudly
+        # in the server console instead of letting it look like nothing happened.
+        print("\n" + "!" * 74)
+        print("  PASSWORD RESET LINK  (email is OFF — set EMAIL_ENABLED=True to send it)")
+        print("!" * 74)
+        print(f"  For : {email}")
+        print(f"  Open: {link}")
+        print("!" * 74 + "\n", flush=True)
     try:
         send_email(email, f"Reset your {settings.APP_NAME} password",
                    f"We received a request to reset your password.\n\n"

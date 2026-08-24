@@ -5,6 +5,7 @@ from .. import models, schemas
 from ..database import get_db
 from ..auth import require_role, hash_password, generate_password
 from ..email_utils import send_credentials_email
+from .. import banner_service
 
 router = APIRouter(prefix="/api/admin", tags=["admin"],
                    dependencies=[Depends(require_role(models.ROLE_ADMIN))])
@@ -216,3 +217,10 @@ def export_csv(entity: str = "jobseekers", db: Session = Depends(get_db)):
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=hire_{entity}.csv"},
     )
+
+
+@router.get("/banners/analytics")
+def all_banner_analytics(days: int = 14, db: Session = Depends(get_db)):
+    """Platform-wide banner performance across every advertiser."""
+    rows = db.query(models.Banner).all()
+    return banner_service.analytics(db, rows, days=days)

@@ -55,3 +55,61 @@ export function MatchBar({ score }) {
     </div>
   );
 }
+
+
+/** Dual-line trend (impressions + clicks) as pure SVG. */
+export function TrendChart({ series = [], height = 170 }) {
+  if (!series.length) return <p className="py-10 text-center text-sm text-slate-400">No data yet.</p>;
+  const W = 640, H = height, P = { t: 12, r: 12, b: 22, l: 34 };
+  const maxI = Math.max(1, ...series.map((d) => d.impressions));
+  const x = (i) => P.l + (i * (W - P.l - P.r)) / Math.max(1, series.length - 1);
+  const y = (v) => P.t + (1 - v / maxI) * (H - P.t - P.b);
+  const path = (key) => series.map((d, i) => `${i ? "L" : "M"}${x(i)},${y(d[key])}`).join(" ");
+  const area = `${path("impressions")} L${x(series.length - 1)},${H - P.b} L${x(0)},${H - P.b} Z`;
+  const label = (d) => d.day.slice(5);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height }}>
+      <defs>
+        <linearGradient id="impFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#10256b" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#10256b" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[0, 0.5, 1].map((f) => (
+        <g key={f}>
+          <line x1={P.l} x2={W - P.r} y1={y(maxI * f)} y2={y(maxI * f)} stroke="#e2e8f0" strokeWidth="1" />
+          <text x={P.l - 6} y={y(maxI * f) + 4} textAnchor="end" fontSize="9" fill="#94a3b8">
+            {Math.round(maxI * f)}
+          </text>
+        </g>
+      ))}
+      <path d={area} fill="url(#impFill)" />
+      <path d={path("impressions")} fill="none" stroke="#10256b" strokeWidth="2.5" strokeLinejoin="round" />
+      <path d={path("clicks")} fill="none" stroke="#4faa38" strokeWidth="2.5" strokeLinejoin="round" />
+      {series.map((d, i) => (
+        <g key={d.day}>
+          <circle cx={x(i)} cy={y(d.impressions)} r="2.5" fill="#10256b" />
+          <circle cx={x(i)} cy={y(d.clicks)} r="2.5" fill="#4faa38" />
+          <title>{`${d.day}: ${d.impressions} views, ${d.clicks} clicks`}</title>
+          {(i === 0 || i === series.length - 1 || i === Math.floor(series.length / 2)) && (
+            <text x={x(i)} y={H - 6} textAnchor="middle" fontSize="9" fill="#94a3b8">{label(d)}</text>
+          )}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** Tiny inline sparkline for table rows. */
+export function Sparkline({ values = [], width = 70, height = 20, color = "#10256b" }) {
+  if (!values.length) return null;
+  const max = Math.max(1, ...values);
+  const pts = values.map((v, i) =>
+    `${(i * width) / Math.max(1, values.length - 1)},${height - (v / max) * height}`).join(" ");
+  return (
+    <svg width={width} height={height} className="overflow-visible">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}

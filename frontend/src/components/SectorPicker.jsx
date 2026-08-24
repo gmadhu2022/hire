@@ -6,7 +6,10 @@ import { IconSearch } from "./icons";
 const GLYPH = {
   tools: "🔧", hardhat: "👷", home: "🏠", utensils: "🍽️", heart: "🏥", leaf: "🌾",
   store: "🏪", truck: "🚚", shield: "🛡️", factory: "🏭", code: "💻", briefcase: "💼",
-  cap: "🎓", building: "🏛️", sparkle: "✨",
+  cap: "🎓", building: "🏛️", sparkle: "✨", bank: "🏦", signal: "📡", bolt: "⚡",
+  car: "🚗", flask: "⚗️", cart: "🛒", camera: "🎬", scale: "⚖️", key: "🔑",
+  plane: "✈️", ship: "🚢", pickaxe: "⛏️", thread: "🧵", package: "📦", run: "🏃",
+  hands: "🤝", badge: "🚔", microscope: "🔬", paw: "🐾", recycle: "♻️", bell: "🔔",
 };
 
 export function useTaxonomy() {
@@ -68,6 +71,44 @@ export function RolePicker({ sectors = [], sector, value, onChange }) {
             No match — you can type your own job title.
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Compact sector list for a sidebar — searchable, one row per sector. */
+export function SectorList({ sectors = [], value, onChange }) {
+  const [q, setQ] = useState("");
+  const shown = q
+    ? sectors.filter((s) =>
+        s.name.toLowerCase().includes(q.toLowerCase()) ||
+        s.roles.some((r) => r.toLowerCase().includes(q.toLowerCase())))
+    : sectors;
+  return (
+    <div>
+      <div className="relative mb-2">
+        <input className="input pr-9 !py-2 !text-[13px]" value={q} onChange={(e) => setQ(e.target.value)}
+               placeholder="Search sector or role…" />
+        <IconSearch size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      </div>
+      <div className="max-h-[420px] space-y-1 overflow-y-auto pr-1">
+        {shown.map((s) => {
+          const active = value === s.key;
+          return (
+            <button key={s.key} type="button" onClick={() => onChange(active ? null : s.key)}
+              className={`flex w-full items-start gap-2.5 rounded-lg border p-2.5 text-left transition-all ${
+                active ? "border-navy bg-navy-50" : "border-transparent hover:border-slate-200 hover:bg-slate-50"}`}>
+              <span className="text-base leading-none">{GLYPH[s.icon] || "•"}</span>
+              <span className="min-w-0 flex-1">
+                <span className={`block truncate text-[12.5px] font-semibold ${active ? "text-navy" : "text-slate-700"}`}>
+                  {s.name}
+                </span>
+                <span className="block truncate text-[10.5px] text-slate-400">{s.roles.length} roles</span>
+              </span>
+            </button>
+          );
+        })}
+        {shown.length === 0 && <p className="px-2 py-4 text-center text-xs text-slate-400">No match.</p>}
       </div>
     </div>
   );
